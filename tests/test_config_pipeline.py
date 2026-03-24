@@ -7,7 +7,13 @@ from pathlib import Path
 
 import pytest
 
+import re
+
 from anonymizer.core import _BUILTIN_PIPELINE, anonymize, load_config
+
+
+def _has_kind(out: str, kind: str) -> bool:
+    return re.search(rf"\[{re.escape(kind)}_\d+\]", out) is not None
 
 
 class TestLoadConfig:
@@ -44,24 +50,24 @@ class TestPhraseLists:
         }
         out = anonymize("Try Blue Dream Haze first", cfg)
         assert "Blue Dream" not in out
-        assert out.count("[STRAIN]") == 1
+        assert out.count("[STRAIN_") == 1
 
     def test_duplicates_and_whitespace_normalized(self) -> None:
         cfg = {"companies": ["  Acme  ", "Acme", "Acme"]}
         out = anonymize("Acme and Acme", cfg)
-        assert out == "[COMPANY] and [COMPANY]"
+        assert out == "[COMPANY_1] and [COMPANY_2]"
 
     def test_case_insensitive(self) -> None:
         cfg = {"people": ["John Smith"]}
         out = anonymize("JOHN SMITH here", cfg)
-        assert "[PERSON]" in out
+        assert _has_kind(out, "PERSON")
         assert "SMITH" not in out
 
     def test_regex_special_chars_in_phrase(self) -> None:
         cfg = {"companies": ["Acme (West)"]}
         out = anonymize("Ship to Acme (West)", cfg)
         assert "Acme (West)" not in out
-        assert "[COMPANY]" in out
+        assert _has_kind(out, "COMPANY")
 
     def test_empty_list_entries_ignored(self) -> None:
         cfg = {"strains": ["", "  ", "Gelato"]}
@@ -71,30 +77,30 @@ class TestPhraseLists:
         """Both applied after builtins; strains first then companies in code."""
         cfg = {"strains": ["X"], "companies": ["Y"]}
         out = anonymize("X Y", cfg)
-        assert "[STRAIN]" in out and "[COMPANY]" in out
+        assert _has_kind(out, "STRAIN") and _has_kind(out, "COMPANY")
 
 
 class TestExtraPatterns:
-    def test_default_replacement(self) -> None:
+    def test_extra_pattern_match(self) -> None:
         cfg = {"extra_patterns": [{"pattern": r"\bFOO\d+\b"}]}
-        assert anonymize("FOO99", cfg) == "[REDACTED]"
+        assert anonymize("FOO99", cfg) == "[EXTRA_1]"
 
-    def test_custom_replacement(self) -> None:
+    def test_mrn_pattern(self) -> None:
         cfg = {
             "extra_patterns": [
-                {"pattern": r"\bMRN-\d+\b", "replacement": "[MRN]"},
+                {"pattern": r"\bMRN-\d+\b"},
             ]
         }
-        assert anonymize("see MRN-908172", cfg) == "see [MRN]"
+        assert anonymize("see MRN-908172", cfg) == "see [EXTRA_1]"
 
     def test_multiple_rules(self) -> None:
         cfg = {
             "extra_patterns": [
-                {"pattern": r"\bA\d\b", "replacement": "[A]"},
-                {"pattern": r"\bB\d\b", "replacement": "[B]"},
+                {"pattern": r"\bA\d\b"},
+                {"pattern": r"\bB\d\b"},
             ]
         }
-        assert anonymize("A1 B2", cfg) == "[A] [B]"
+        assert anonymize("A1 B2", cfg) == "[EXTRA_1] [EXTRA_2]"
 
 
 @pytest.mark.parametrize(
@@ -107,8 +113,8 @@ class TestExtraPatterns:
     ],
 )
 def test_extra_patterns_skips_invalid_entries(bad_entry: object) -> None:
-    cfg = {"extra_patterns": [bad_entry, {"pattern": r"A\d", "replacement": "[OK]"}]}
-    assert anonymize("A1", cfg) == "[OK]"
+    cfg = {"extra_patterns": [bad_entry, {"pattern": r"A\d"}]}
+    assert anonymize("A1", cfg) == "[EXTRA_1]"
 
 
 class TestPipeline:
@@ -145,7 +151,7 @@ class TestRegressionMixed:
         cfg = {
             "people": ["Jane Q. Patient"],
             "extra_patterns": [
-                {"pattern": r"\bMRN-\d+\b", "replacement": "[MRN]"},
+                {"pattern": r"\bMRN-\d+\b"},
             ],
         }
         out = anonymize(text, cfg)
@@ -162,5 +168,5 @@ class TestStress:
     def test_large_text_few_matches(self) -> None:
         chunk = "word " * 5000
         out = anonymize(chunk + " a@b.co " + chunk, {})
-        assert "[EMAIL]" in out
-        assert out.count("[EMAIL]") == 1
+        assert _has_kind(out, "EMAIL")
+        assert out.count("[EMAIL_") == 1

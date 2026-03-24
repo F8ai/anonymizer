@@ -17,5 +17,7 @@ def test_version_defined() -> None:
 def test_public_exports() -> None:
     assert hasattr(anonymizer, "anonymize")
     assert hasattr(anonymizer, "load_config")
+    assert hasattr(anonymizer, "unredact")
     assert callable(anonymizer.anonymize)
     assert callable(anonymizer.load_config)
+    assert callable(anonymizer.unredact)

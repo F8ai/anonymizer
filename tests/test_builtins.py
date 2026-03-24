@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from anonymizer.core import _luhn_valid, anonymize
+
+
+def _has_kind(out: str, kind: str) -> bool:
+    return re.search(rf"\[{re.escape(kind)}_\d+\]", out) is not None
 
 
 class TestLuhn:
@@ -25,7 +31,7 @@ class TestLuhn:
         [
             "",
             "1",
-            "123456789012345",  # 15 digits wrong check
+            "123456789012345",
             "4111111111111112",
             "abcdefghijklmnop",
         ],
@@ -46,22 +52,22 @@ class TestCreditCard:
     )
     def test_redaction(self, text: str, expect_card: bool) -> None:
         out = anonymize(text, {})
-        assert ("[CARD]" in out) is expect_card
+        assert _has_kind(out, "CARD") is expect_card
 
     def test_hyphen_grouped(self) -> None:
-        assert anonymize("x 4111-1111-1111-1111 y", {}) == "x [CARD] y"
+        assert anonymize("x 4111-1111-1111-1111 y", {}) == "x [CARD_1] y"
 
     def test_multiple_cards(self) -> None:
         out = anonymize("a 4111111111111111 b 5555555555554444 c", {})
-        assert out.count("[CARD]") == 2
+        assert out.count("[CARD_") == 2
 
 
 class TestSSN:
     @pytest.mark.parametrize(
         "raw,expected",
         [
-            ("SSN 123-45-6789 end", "SSN [SSN] end"),
-            ("SSN 123 45 6789 end", "SSN [SSN] end"),
+            ("SSN 123-45-6789 end", "SSN [SSN_1] end"),
+            ("SSN 123 45 6789 end", "SSN [SSN_1] end"),
         ],
     )
     def test_formats(self, raw: str, expected: str) -> None:
@@ -70,7 +76,7 @@ class TestSSN:
 
 class TestEIN:
     def test_standard(self) -> None:
-        assert anonymize("EIN 12-3456789", {}) == "EIN [EIN]"
+        assert anonymize("EIN 12-3456789", {}) == "EIN [EIN_1]"
 
 
 class TestEmail:
@@ -84,11 +90,11 @@ class TestEmail:
     def test_redacted(self, addr: str) -> None:
         out = anonymize(f"mail {addr} thanks", {})
         assert addr not in out
-        assert "[EMAIL]" in out
+        assert _has_kind(out, "EMAIL")
 
     def test_multiple(self) -> None:
         out = anonymize("a@b.co and c@d.co", {})
-        assert out.count("[EMAIL]") == 2
+        assert out.count("[EMAIL_") == 2
 
 
 class TestPhone:
@@ -104,11 +110,11 @@ class TestPhone:
     def test_us_variants(self, phone: str) -> None:
         out = anonymize(f"call {phone} now", {})
         assert phone not in out
-        assert "[PHONE]" in out
+        assert _has_kind(out, "PHONE")
 
     def test_multiple(self) -> None:
         out = anonymize("(555) 111-1111 or (555) 222-2222", {})
-        assert out.count("[PHONE]") == 2
+        assert out.count("[PHONE_") == 2
 
 
 class TestDates:
@@ -123,7 +129,8 @@ class TestDates:
     )
     def test_iso_and_us(self, raw: str, expect_date: bool) -> None:
         out = anonymize(f"x {raw} y", {})
-        assert (raw not in out) is expect_date
+        has = _has_kind(out, "DATE")
+        assert has is expect_date
 
 
 class TestBuiltinToggles:

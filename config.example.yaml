@@ -12,10 +12,9 @@ companies:
 people:
   - "Jane Q. Patient"
 
-# Extra regexes applied after built-ins. Each entry: { pattern, replacement }
+# Extra regexes after built-ins: { pattern } — matches become [EXTRA_n] (mapping stores original).
 extra_patterns:
   - pattern: "\\bCUSTOM-\\d{4,}\\b"
-    replacement: "[ORDER]"
 
 # Built-in redactors (set false to disable)
 builtins:

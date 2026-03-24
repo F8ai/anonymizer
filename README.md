@@ -6,7 +6,23 @@ Fast, local redaction for prompts and payloads **before** they go to [OpenRouter
 
 - **Built-in patterns (ordered pipeline):** Luhn-checked **payment cards**, **SSN** (dashed/spaced), **EIN**, **email**, **US phone**, validated **ISO dates** and **slash dates**, **IPv6** then **IPv4** (parsed with `ipaddress`), **METRC-like** uppercase alphanumerics (20–28 chars).
 - **Lists:** YAML lists of **strains**, **companies**, and **people** (longest match first).
-- **Extra regexes:** Internal codes, MRNs, order IDs, etc.
+- **Extra regexes:** Internal codes, MRNs, order IDs, etc. (each match becomes a unique `[EXTRA_n]` with the matched text stored in the mapping).
+
+## Reversible redaction (unredact)
+
+Each redacted span is replaced by a **unique** placeholder like `[EMAIL_1]`, `[SSN_2]`, `[METRC_3]`. Keep the mapping **only on your side** (same sensitivity as plaintext). To restore model output or logs before internal use:
+
+```python
+from anonymizer import anonymize, load_config, unredact
+
+cfg = load_config("config.yaml")
+redacted, mapping = anonymize(raw_user_message, cfg, return_mapping=True)
+# send `redacted` upstream; store `mapping` securely
+
+restored = unredact(model_output, mapping)
+```
+
+CLI: write the JSON mapping next to runs with `--mapping-out map.json`, and restore with `anonymize-prompt --unredact --mapping map.json redacted.txt`.
 
 This is a **deterministic** filter, not clinical NER. It does **not** reliably remove arbitrary person names, street addresses, or narrative diagnoses without you supplying phrases or extra patterns. **HIPAA compliance** is a program (risk analysis, minimum necessary, access controls, encryption, BAAs, training, audit), not a single library—use this as one technical control alongside organizational and legal measures.
 
@@ -23,7 +39,7 @@ pip install -e ".[dev]"
 pytest tests/ --cov=anonymizer --cov-fail-under=90
 ```
 
-Layout: `tests/test_builtins.py` (Luhn, cards, SSN, EIN, email, phone, dates, toggles), `tests/test_network_ids.py` (IPv4/IPv6, METRC-like), `tests/test_config_pipeline.py` (YAML, lists, extras, stress), `tests/test_cli.py`, `tests/test_package.py`, plus `conftest.py` for shared fixtures.
+Layout: `tests/test_builtins.py`, `tests/test_network_ids.py`, `tests/test_config_pipeline.py`, `tests/test_roundtrip.py`, `tests/test_cli.py`, `tests/test_package.py`, plus `conftest.py`.
 
 ### Latency (token windows)
 
@@ -40,7 +56,7 @@ anonymize-bench -c config.yaml --seed 42
 
 ```bash
 # stdin
-echo 'Contact grow@example.com about batch 1A4FF000000012400000000' | anonymize-prompt -c config.yaml
+echo 'Contact grow@example.com about batch 1A4FF000000012400000000' | anonymize-prompt -c config.yaml --mapping-out map.json
 
 # file
 anonymize-prompt -c config.yaml prompt.txt
@@ -57,6 +73,7 @@ from anonymizer import anonymize, load_config
 
 cfg = load_config("config.yaml")
 safe_user_message = anonymize(raw_user_message, cfg)
+# Or with mapping for later unredact: anonymize(..., return_mapping=True)
 ```
 
 ## License
