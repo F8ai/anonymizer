@@ -25,6 +25,17 @@ pytest tests/ --cov=anonymizer --cov-fail-under=90
 
 Layout: `tests/test_builtins.py` (Luhn, cards, SSN, EIN, email, phone, dates, toggles), `tests/test_network_ids.py` (IPv4/IPv6, METRC-like), `tests/test_config_pipeline.py` (YAML, lists, extras, stress), `tests/test_cli.py`, `tests/test_package.py`, plus `conftest.py` for shared fixtures.
 
+### Latency (token windows)
+
+Measure wall-clock time for `anonymize()` on synthetic corpora sized to common context lengths (256 → 131072 tokens by default). With `tiktoken` installed, lengths use **exact** `cl100k_base` token counts; otherwise sizing uses ~4 characters per token.
+
+```bash
+pip install -e ".[benchmark]"   # optional: exact tokenization
+anonymize-bench                  # full default grid (can be slow)
+anonymize-bench --windows 512,1024,4096 --repeats 5 --warmup 1
+anonymize-bench -c config.yaml --seed 42
+```
+
 ## Usage
 
 ```bash
