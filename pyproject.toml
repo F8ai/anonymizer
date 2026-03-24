@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prompt-anonymizer"
-version = "0.3.0"
+version = "0.3.1"
 description = "HIPAA-oriented PHI redaction: SSN, EIN, dates, cards, IPs, emails, phones, METRC-like IDs, plus configurable lists."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,6 +15,7 @@ dependencies = [
 [project.scripts]
 anonymize-prompt = "anonymizer.cli:main"
 anonymize-bench = "anonymizer.bench:main"
+anonymize-review = "anonymizer.review:main"
 
 [project.optional-dependencies]
 dev = [
@@ -36,7 +37,7 @@ addopts = "-q --strict-markers"
 [tool.coverage.run]
 branch = true
 source = ["src/anonymizer"]
-omit = ["src/anonymizer/bench.py"]
+omit = ["src/anonymizer/bench.py", "src/anonymizer/review.py"]
 
 [tool.coverage.report]
 fail_under = 90

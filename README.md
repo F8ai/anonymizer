@@ -39,7 +39,7 @@ pip install -e ".[dev]"
 pytest tests/ --cov=anonymizer --cov-fail-under=90
 ```
 
-Layout: `tests/test_builtins.py`, `tests/test_network_ids.py`, `tests/test_config_pipeline.py`, `tests/test_roundtrip.py`, `tests/test_cli.py`, `tests/test_package.py`, plus `conftest.py`.
+Layout: `tests/test_builtins.py`, `tests/test_network_ids.py`, `tests/test_config_pipeline.py`, `tests/test_roundtrip.py`, `tests/test_cli.py`, `tests/test_package.py`, `tests/test_review.py`, plus `conftest.py`.
 
 ### Latency (token windows)
 
@@ -63,6 +63,24 @@ anonymize-prompt -c config.yaml prompt.txt
 ```
 
 Copy `config.example.yaml` to `config.yaml` and tune lists and `builtins` toggles.
+
+## Expert review agent (LLM assist)
+
+`anonymize-review` asks an OpenRouter model to **critique** redacted output (Safe Harbor–style checklist, METRC context, narrative re-ID risk). This is an **engineering assist**, **not** a HIPAA Expert Determination and **not** legal advice.
+
+```bash
+export OPENROUTER_API_KEY=...
+# Prompt only (no third-party call):
+anonymize-review --print-prompt --redacted redacted.txt --config config.yaml
+
+# Full review (redacted text only — safer):
+anonymize-review --redacted redacted.txt --mapping map.json -c config.yaml
+
+# Comparative review (sends ORIGINAL to OpenRouter — use only if allowed):
+anonymize-review --redacted redacted.txt --original original.txt
+```
+
+Environment: `ANONYMIZER_REVIEW_MODEL` (default `openai/gpt-4o-mini`), optional `OPENROUTER_API_URL`, `OPENROUTER_SITE_URL`, `OPENROUTER_APP_TITLE`. The `--mapping` file is summarized as **counts and placeholder kinds only** — secret values are not embedded in the prompt.
 
 ## OpenRouter integration
 
