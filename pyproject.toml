@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prompt-anonymizer"
-version = "0.1.0"
-description = "Strip METRC IDs, business names, strain names, and other customer data from prompts before OpenRouter."
+version = "0.2.0"
+description = "HIPAA-oriented PHI redaction: SSN, EIN, dates, cards, IPs, emails, phones, METRC-like IDs, plus configurable lists."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -15,5 +15,24 @@ dependencies = [
 [project.scripts]
 anonymize-prompt = "anonymizer.cli:main"
 
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=4.0",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/anonymizer"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q --strict-markers"
+
+[tool.coverage.run]
+branch = true
+source = ["src/anonymizer"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true

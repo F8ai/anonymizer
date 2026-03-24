@@ -8,7 +8,7 @@ from anonymizer.core import anonymize, load_config
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Redact customer data from prompts before OpenRouter (METRC-style IDs, lists, etc.)."
+        description="Redact PHI/PII-style data from prompts before OpenRouter (SSN, cards, dates, IPs, METRC-like IDs, lists)."
     )
     parser.add_argument(
         "-c",
@@ -32,5 +32,5 @@ def main() -> None:
     sys.stdout.write(anonymize(text, cfg))
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

@@ -1,5 +1,5 @@
 # Copy to config.yaml and tune for your operation.
-# Longer phrases are replaced first (strains/companies).
+# Longer phrases are replaced first (strains, companies, people).
 
 strains:
   - "Blue Dream"
@@ -9,6 +9,9 @@ companies:
   - "Example Cultivation LLC"
   - "Sample Processing Inc."
 
+people:
+  - "Jane Q. Patient"
+
 # Extra regexes applied after built-ins. Each entry: { pattern, replacement }
 extra_patterns:
   - pattern: "\\bCUSTOM-\\d{4,}\\b"
@@ -16,7 +19,14 @@ extra_patterns:
 
 # Built-in redactors (set false to disable)
 builtins:
+  credit_card: true
+  ssn: true
+  ein: true
   email: true
   phone_us: true
+  date_iso: true
+  date_us_slash: true
+  ipv6: true
+  ipv4: true
   # METRC-style package / tag tokens (20–28 uppercase alphanumerics)
   metrc_like_ids: true

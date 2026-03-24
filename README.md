@@ -1,19 +1,26 @@
 # prompt-anonymizer
 
-Fast, local redaction for prompts and payloads **before** they go to [OpenRouter](https://openrouter.ai/) (or any other model API). The goal is to strip customer-identifying and regulated data—METRC-style identifiers, company names, strain names, emails, and phone numbers—so prompts can be logged or sent upstream without leaking PII.
+Fast, local redaction for prompts and payloads **before** they go to [OpenRouter](https://openrouter.ai/) (or any other model API). The goal is to strip regulated and customer-identifying data—**PHI/PII-style identifiers** (SSN, EIN, dates of birth/encounter, payment cards, IPs, email, phone), **METRC-style** tags, and configurable **strain / company / person** phrases—so text can be logged or sent upstream with lower leakage risk.
 
-## What it does
+## What it does (technical controls)
 
-- **Built-in patterns:** US-style phones, email addresses, and 20–28 character uppercase alphanumeric tokens (METRC package label–like), each replaceable with neutral placeholders.
-- **Lists:** Optional YAML lists of **strain** and **company** strings (longest match first to avoid partial leaks).
-- **Extra regexes:** Add your own patterns (order IDs, internal codes, etc.).
+- **Built-in patterns (ordered pipeline):** Luhn-checked **payment cards**, **SSN** (dashed/spaced), **EIN**, **email**, **US phone**, validated **ISO dates** and **slash dates**, **IPv6** then **IPv4** (parsed with `ipaddress`), **METRC-like** uppercase alphanumerics (20–28 chars).
+- **Lists:** YAML lists of **strains**, **companies**, and **people** (longest match first).
+- **Extra regexes:** Internal codes, MRNs, order IDs, etc.
 
-This is a deterministic filter, not ML-based NER. Tune `config.yaml` for your data; false positives on the METRC-like rule are possible if your text has unrelated long uppercase tokens—disable `metrc_like_ids` in config if needed.
+This is a **deterministic** filter, not clinical NER. It does **not** reliably remove arbitrary person names, street addresses, or narrative diagnoses without you supplying phrases or extra patterns. **HIPAA compliance** is a program (risk analysis, minimum necessary, access controls, encryption, BAAs, training, audit), not a single library—use this as one technical control alongside organizational and legal measures.
 
 ## Install
 
 ```bash
 pip install -e .
+```
+
+### Development & tests
+
+```bash
+pip install -e ".[dev]"
+pytest tests/ --cov=anonymizer --cov-fail-under=90
 ```
 
 ## Usage
@@ -26,7 +33,7 @@ echo 'Contact grow@example.com about batch 1A4FF000000012400000000' | anonymize-
 anonymize-prompt -c config.yaml prompt.txt
 ```
 
-Copy `config.example.yaml` to `config.yaml` and fill in strains, companies, and any extra regexes.
+Copy `config.example.yaml` to `config.yaml` and tune lists and `builtins` toggles.
 
 ## OpenRouter integration
 
