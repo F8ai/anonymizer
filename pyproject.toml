@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prompt-anonymizer"
-version = "0.3.1"
+version = "0.3.2"
 description = "HIPAA-oriented PHI redaction: SSN, EIN, dates, cards, IPs, emails, phones, METRC-like IDs, plus configurable lists."
 readme = "README.md"
 requires-python = ">=3.10"

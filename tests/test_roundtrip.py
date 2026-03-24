@@ -34,6 +34,44 @@ def test_roundtrip_with_config_lists() -> None:
     assert unredact(out, mapping) == raw
 
 
+def test_anonymize_messages_multimodal_text() -> None:
+    from anonymizer.core import anonymize_messages
+
+    msgs = [
+        {
+            "role": "user",
+            "content": [{"type": "text", "text": "reach x@y.co"}],
+        }
+    ]
+    out, _ = anonymize_messages(msgs, {})
+    assert "[EMAIL_" in out[0]["content"][0]["text"]
+
+
+def test_anonymize_messages_skips_system() -> None:
+    from anonymizer.core import anonymize_messages
+
+    msgs = [
+        {"role": "system", "content": "x@y.co"},
+        {"role": "user", "content": "hi"},
+    ]
+    out, m = anonymize_messages(msgs, {})
+    assert "x@y.co" in out[0]["content"]
+    assert m == {}
+
+
+def test_anonymize_messages_shared_mapping() -> None:
+    from anonymizer.core import anonymize_messages
+
+    msgs = [
+        {"role": "user", "content": "a@b.co"},
+        {"role": "user", "content": "same a@b.co"},
+    ]
+    out, mapping = anonymize_messages(msgs, {})
+    assert out[0]["content"] == "[EMAIL_1]"
+    assert out[1]["content"] == "same [EMAIL_2]"
+    assert len(mapping) == 2
+
+
 def test_mapping_json_roundtrip() -> None:
     raw = "x@y.co"
     out, mapping = anonymize(raw, return_mapping=True)

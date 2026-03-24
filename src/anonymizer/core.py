@@ -9,6 +9,9 @@ from typing import Any, Callable, Literal, Mapping, overload
 
 import yaml
 
+# Roles whose message bodies are redacted when sending to third-party LLMs (see anonymize_messages).
+DEFAULT_ANONYMIZE_MESSAGE_ROLES: frozenset[str] = frozenset({"user", "tool"})
+
 # Ordered: specific high-risk tokens before looser patterns (overlap safety).
 _BuiltinFn = Callable[[str, bool, "RedactionState"], str]
 
@@ -273,6 +276,98 @@ def _sorted_phrases(items: list[str] | None) -> list[str]:
     return sorted(unique, key=len, reverse=True)
 
 
+def _redact_plain_text(text: str, cfg: dict[str, Any], st: RedactionState) -> str:
+    """Apply full redaction pipeline to a single string, mutating ``st``."""
+    builtins = cfg.get("builtins") or {}
+    out = text
+
+    for name, fn in _BUILTIN_PIPELINE:
+        enabled = builtins.get(name, True)
+        out = fn(out, enabled, st)
+
+    for phrase in _sorted_phrases(cfg.get("strains")):
+        pat = re.compile(re.escape(phrase), re.IGNORECASE)
+
+        def sub_strain(m: re.Match[str]) -> str:
+            return st.token("STRAIN", m.group(0))
+
+        out = pat.sub(sub_strain, out)
+
+    for phrase in _sorted_phrases(cfg.get("companies")):
+        pat = re.compile(re.escape(phrase), re.IGNORECASE)
+
+        def sub_company(m: re.Match[str]) -> str:
+            return st.token("COMPANY", m.group(0))
+
+        out = pat.sub(sub_company, out)
+
+    for phrase in _sorted_phrases(cfg.get("people")):
+        pat = re.compile(re.escape(phrase), re.IGNORECASE)
+
+        def sub_person(m: re.Match[str]) -> str:
+            return st.token("PERSON", m.group(0))
+
+        out = pat.sub(sub_person, out)
+
+    for entry in cfg.get("extra_patterns") or []:
+        if not isinstance(entry, dict):
+            continue
+        pat_s = entry.get("pattern")
+        if not pat_s:
+            continue
+        rx = re.compile(pat_s)
+
+        def sub_extra(m: re.Match[str]) -> str:
+            return st.token("EXTRA", m.group(0))
+
+        out = rx.sub(sub_extra, out)
+
+    return out
+
+
+def _redact_multimodal_parts(parts: list[Any], cfg: dict[str, Any], st: RedactionState) -> list[Any]:
+    out: list[Any] = []
+    for p in parts:
+        if isinstance(p, dict) and p.get("type") == "text" and isinstance(p.get("text"), str):
+            q = dict(p)
+            q["text"] = _redact_plain_text(p["text"], cfg, st)
+            out.append(q)
+        else:
+            out.append(p)
+    return out
+
+
+def anonymize_messages(
+    messages: list[dict[str, Any]],
+    config: dict[str, Any] | None = None,
+    *,
+    roles: frozenset[str] = DEFAULT_ANONYMIZE_MESSAGE_ROLES,
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """Redact string (or multimodal text) content for each message whose role is in ``roles``.
+
+    Uses one shared :class:`RedactionState` so placeholders are unique across the transcript.
+    """
+    cfg = config or {}
+    st = RedactionState()
+    out: list[dict[str, Any]] = []
+    for m in messages:
+        if not isinstance(m, dict):
+            out.append(m)
+            continue
+        m2 = dict(m)
+        role = m2.get("role")
+        if role not in roles:
+            out.append(m2)
+            continue
+        content = m2.get("content")
+        if isinstance(content, str):
+            m2["content"] = _redact_plain_text(content, cfg, st)
+        elif isinstance(content, list):
+            m2["content"] = _redact_multimodal_parts(content, cfg, st)
+        out.append(m2)
+    return out, dict(st.mapping)
+
+
 def unredact(text: str, mapping: Mapping[str, str]) -> str:
     """Replace placeholders in ``text`` using ``mapping`` (placeholder → original).
 
@@ -320,51 +415,8 @@ def anonymize(
     person names or free-form addresses without list configuration.
     """
     cfg = config or {}
-    builtins = cfg.get("builtins") or {}
     st = RedactionState()
-    out = text
-
-    for name, fn in _BUILTIN_PIPELINE:
-        enabled = builtins.get(name, True)
-        out = fn(out, enabled, st)
-
-    for phrase in _sorted_phrases(cfg.get("strains")):
-        pat = re.compile(re.escape(phrase), re.IGNORECASE)
-
-        def sub_strain(m: re.Match[str]) -> str:
-            return st.token("STRAIN", m.group(0))
-
-        out = pat.sub(sub_strain, out)
-
-    for phrase in _sorted_phrases(cfg.get("companies")):
-        pat = re.compile(re.escape(phrase), re.IGNORECASE)
-
-        def sub_company(m: re.Match[str]) -> str:
-            return st.token("COMPANY", m.group(0))
-
-        out = pat.sub(sub_company, out)
-
-    for phrase in _sorted_phrases(cfg.get("people")):
-        pat = re.compile(re.escape(phrase), re.IGNORECASE)
-
-        def sub_person(m: re.Match[str]) -> str:
-            return st.token("PERSON", m.group(0))
-
-        out = pat.sub(sub_person, out)
-
-    for entry in cfg.get("extra_patterns") or []:
-        if not isinstance(entry, dict):
-            continue
-        pat_s = entry.get("pattern")
-        if not pat_s:
-            continue
-        rx = re.compile(pat_s)
-
-        def sub_extra(m: re.Match[str]) -> str:
-            return st.token("EXTRA", m.group(0))
-
-        out = rx.sub(sub_extra, out)
-
+    out = _redact_plain_text(text, cfg, st)
     mapping = dict(st.mapping)
     if return_mapping:
         return out, mapping
