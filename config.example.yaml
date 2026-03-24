@@ -1,0 +1,22 @@
+# Copy to config.yaml and tune for your operation.
+# Longer phrases are replaced first (strains/companies).
+
+strains:
+  - "Blue Dream"
+  - "Wedding Cake"
+
+companies:
+  - "Example Cultivation LLC"
+  - "Sample Processing Inc."
+
+# Extra regexes applied after built-ins. Each entry: { pattern, replacement }
+extra_patterns:
+  - pattern: "\\bCUSTOM-\\d{4,}\\b"
+    replacement: "[ORDER]"
+
+# Built-in redactors (set false to disable)
+builtins:
+  email: true
+  phone_us: true
+  # METRC-style package / tag tokens (20–28 uppercase alphanumerics)
+  metrc_like_ids: true

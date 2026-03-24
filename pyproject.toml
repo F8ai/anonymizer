@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "prompt-anonymizer"
+version = "0.1.0"
+description = "Strip METRC IDs, business names, strain names, and other customer data from prompts before OpenRouter."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pyyaml>=6.0",
+]
+
+[project.scripts]
+anonymize-prompt = "anonymizer.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/anonymizer"]
