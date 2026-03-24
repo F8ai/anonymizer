@@ -23,6 +23,8 @@ pip install -e ".[dev]"
 pytest tests/ --cov=anonymizer --cov-fail-under=90
 ```
 
+Layout: `tests/test_builtins.py` (Luhn, cards, SSN, EIN, email, phone, dates, toggles), `tests/test_network_ids.py` (IPv4/IPv6, METRC-like), `tests/test_config_pipeline.py` (YAML, lists, extras, stress), `tests/test_cli.py`, `tests/test_package.py`, plus `conftest.py` for shared fixtures.
+
 ## Usage
 
 ```bash
